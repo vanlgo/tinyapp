@@ -23,15 +23,11 @@ const bodyParser = require("body-parser");
 app.use(bodyParser.urlencoded({extended: true}));
 
 app.get("/", (req, res) => {
-  res.send("Hello!");
+  res.redirect("/urls");
 });
 
 app.get("/urls.json", (req, res) => {
   res.json(urlDatabase);
-});
-
-app.get("/hello", (req, res) => {
-  res.send("<html><body>Hello <b>World</b></body></html>\n");
 });
 
 app.get("/urls", (req, res) => {
@@ -39,24 +35,38 @@ app.get("/urls", (req, res) => {
   res.render("urls_index", templateVars);
 });
 
-// log POST req to body
-app.post("/urls", (req, res) => {
-  urlDatabase[generateRandomString()] = req.body.longURL;
-  res.redirect(`/urls/${shortURL}`);
-});
-
 app.get("/urls/new", (req, res) => {
   res.render("urls_new");
 });
 
+// GET redirecting to tinyapp page for shortURL
 app.get("/urls/:shortURL", (req, res) => {
-  const templateVars = { shortURL: req.params.shortURL, longURL: urlDatabase };
+  const templateVars = { shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL] };
   res.render("urls_show", templateVars);
 });
 
+// GET redirecting to long URL
 app.get("/u/:shortURL", (req, res) => {
   const longURL = urlDatabase[req.params.shortURL];
   res.redirect(longURL);
+});
+
+
+// POST edit requested short URL
+app.post("/urls/:id", (req, res) => {
+  urlDatabase[req.params.id] = req.body.longURL;
+  res.redirect("/urls/");
+});
+
+// POST delete requested short URL
+app.post("/urls/:shortURL/delete", (req, res) => {
+  delete urlDatabase[req.params.shortURL];
+});
+
+// POST generating new short URL
+app.post("/urls", (req, res) => {
+  urlDatabase[generateRandomString()] = req.body.longURL;
+  res.redirect(`/urls/${shortURL}`);
 });
 
 app.listen(PORT, () => {
