@@ -13,8 +13,11 @@
         <form class="form-inline" action="/login" method="POST">
           <label for="username">Sign in:</label>
           <input class="text" name="username" placeholder="username" style="width: 100px; margin: 1em">
-          <button type="submit" class="btn btn-primary">Submit</button>
+          <button type="submit" class="btn btn-primary">Login</button>
       </form>
+      <% if (username) { %>
+      <label> Logged In As:<%= username %></label>
+      <% } %>
       </div>
     </div>
   </nav>
