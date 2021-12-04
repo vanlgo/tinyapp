@@ -21,10 +21,31 @@ function generateRandomString() {
   return result;
   }
 
+const emailLookup = (email, users) => {
+  for (const user in users) {
+    if (users[user].email === email) {
+      return true;
+    };
+  }
+}
+
 const urlDatabase = {
   "b2xVn2": "http://www.lighthouselabs.ca",
   "9sm5xK": "http://www.google.com"
 };
+
+const users = { 
+  "redditor": {
+    id: "redditor", 
+    email: "redditor@reddit.com", 
+    password: "purple-monkey-dinosaur"
+  },
+ "tumblrite": {
+    id: "tumblrite", 
+    email: "tumblrite@tumblr.com", 
+    password: "dishwasher-funk"
+  }
+}
 
 app.get("/", (req, res) => {
   res.redirect("/urls");
@@ -36,7 +57,7 @@ app.get("/urls.json", (req, res) => {
 
 app.get("/urls", (req, res) => {
   const templateVars = {
-    username: req.cookies["username"],
+    user_id: users[req.cookies["user_id"]],
     urls: urlDatabase
   };
   res.render("urls_index", templateVars);
@@ -44,15 +65,22 @@ app.get("/urls", (req, res) => {
 
 app.get("/urls/new", (req, res) => {
   const templateVars = {
-    username: req.cookies["username"],
+    user_id: users[req.cookies["user_id"]],
   };
   res.render("urls_new", templateVars);
+});
+
+app.get("/register", (req, res) => {
+  const templateVars = {
+    user_id: users[req.cookies["user_id"]],
+  };
+  res.render("register", templateVars);
 });
 
 // GET redirecting to tinyapp page for shortURL
 app.get("/urls/:shortURL", (req, res) => {
   const templateVars = {
-    username: req.cookies["username"],
+    user_id: users[req.cookies["user_id"]],
     shortURL: req.params.shortURL,
     longURL: urlDatabase[req.params.shortURL]
   };
@@ -82,15 +110,33 @@ app.post("/urls", (req, res) => {
   res.redirect(`/urls/${shortURL}`);
 });
 
-//POST set login
+// POST set login
 app.post("/login", (req, res) => {
-  res.cookie("username", req.body.username);
+  res.cookie("user_id", req.body.user_id);
   res.redirect("/");
 });
 
-//POST set login
+// POST set login
 app.post("/logout", (req, res) => {
-  res.clearCookie("username");
+  res.clearCookie("user_id");
+  res.redirect("/");
+});
+
+// POST to register new users
+app.post("/register", (req, res) => {
+  const newEmail = req.body.email;
+  const newPass = req.body.password;
+  const emailCheck = emailLookup(newEmail, users)
+  if (newEmail === "" || newPass === "") {
+    res.status(400).send("Invalid e-mail or password");
+  } else if (emailCheck) {
+    res.status(400).send("User already found at e-mail submitted");
+  }
+  const newUser = generateRandomString();
+  users[newUser] = { id: newUser, email: newEmail, password: newPass }
+  res.cookie("user_id", newUser);
+  console.log(users[newUser])
+  console.log(users)
   res.redirect("/");
 });
 
