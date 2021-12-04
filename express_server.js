@@ -12,40 +12,56 @@ app.use(cookieParser());
 
 app.set("view engine", "ejs");
 
-function generateRandomString() {
+const generateRandomString = () => {
   const char = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890";
   let result = "";
   while (result.length < 6) {
     result += char.charAt(Math.floor(Math.random() * char.length));
   }
   return result;
-  }
+};
 
 const emailLookup = (email, users) => {
   for (const user in users) {
     if (users[user].email === email) {
       return true;
-    };
+    }
   }
-}
+};
+
+const passLookup = (pass, users) => {
+  for (const user in users) {
+    if (users[user].password === pass) {
+      return true;
+    }
+  }
+};
+
+const findUser = (email, users) => {
+  for (const user in users) {
+    if (users[user].email === email) {
+      return users[user].id;
+    }
+  }
+};
 
 const urlDatabase = {
   "b2xVn2": "http://www.lighthouselabs.ca",
   "9sm5xK": "http://www.google.com"
 };
 
-const users = { 
+const users = {
   "redditor": {
-    id: "redditor", 
-    email: "redditor@reddit.com", 
+    id: "redditor",
+    email: "redditor@reddit.com",
     password: "purple-monkey-dinosaur"
   },
- "tumblrite": {
-    id: "tumblrite", 
-    email: "tumblrite@tumblr.com", 
+  "tumblrite": {
+    id: "tumblrite",
+    email: "tumblrite@tumblr.com",
     password: "dishwasher-funk"
   }
-}
+};
 
 app.get("/", (req, res) => {
   res.redirect("/urls");
@@ -57,7 +73,7 @@ app.get("/urls.json", (req, res) => {
 
 app.get("/urls", (req, res) => {
   const templateVars = {
-    user_id: users[req.cookies["user_id"]],
+    userID: users[req.cookies["user_id"]],
     urls: urlDatabase
   };
   res.render("urls_index", templateVars);
@@ -65,22 +81,30 @@ app.get("/urls", (req, res) => {
 
 app.get("/urls/new", (req, res) => {
   const templateVars = {
-    user_id: users[req.cookies["user_id"]],
+    userID: users[req.cookies["user_id"]],
   };
   res.render("urls_new", templateVars);
 });
 
 app.get("/register", (req, res) => {
   const templateVars = {
-    user_id: users[req.cookies["user_id"]],
+    userID: users[req.cookies["user_id"]],
   };
   res.render("register", templateVars);
 });
 
+app.get("/login", (req, res) => {
+  const templateVars = {
+    userID: users[req.cookies["user_id"]],
+  };
+  res.render("login", templateVars);
+});
+
+
 // GET redirecting to tinyapp page for shortURL
 app.get("/urls/:shortURL", (req, res) => {
   const templateVars = {
-    user_id: users[req.cookies["user_id"]],
+    userID: users[req.cookies["user_id"]],
     shortURL: req.params.shortURL,
     longURL: urlDatabase[req.params.shortURL]
   };
@@ -96,27 +120,41 @@ app.get("/u/:shortURL", (req, res) => {
 // POST edit requested short URL
 app.post("/urls/:id", (req, res) => {
   urlDatabase[req.params.id] = req.body.longURL;
-  res.redirect("/urls/");
+  res.redirect("/");
 });
 
 // POST delete requested short URL
 app.post("/urls/:shortURL/delete", (req, res) => {
   delete urlDatabase[req.params.shortURL];
+  res.redirect("/");
 });
 
 // POST generating new short URL
 app.post("/urls", (req, res) => {
-  urlDatabase[generateRandomString()] = req.body.longURL;
+  const shortURL = generateRandomString();
+  urlDatabase[shortURL] = req.body.longURL;
   res.redirect(`/urls/${shortURL}`);
 });
 
-// POST set login
+// POST to login users
 app.post("/login", (req, res) => {
-  res.cookie("user_id", req.body.user_id);
-  res.redirect("/");
+  const userEmail = req.body.email;
+  const userPass = req.body.password;
+
+  if (!emailLookup(userEmail, users)) {
+    res.status(400).send("Invalid e-mail or password");
+  } else {
+    if (!passLookup(userPass, users)) {
+      res.status(400).send("Invalid e-mail or password");
+    }
+    const login = findUser(userEmail, users);
+    res.cookie("user_id", login);
+    console.log(login);
+    res.redirect("/");
+  }
 });
 
-// POST set login
+// POST set logout
 app.post("/logout", (req, res) => {
   res.clearCookie("user_id");
   res.redirect("/");
@@ -126,18 +164,17 @@ app.post("/logout", (req, res) => {
 app.post("/register", (req, res) => {
   const newEmail = req.body.email;
   const newPass = req.body.password;
-  const emailCheck = emailLookup(newEmail, users)
+
   if (newEmail === "" || newPass === "") {
     res.status(400).send("Invalid e-mail or password");
-  } else if (emailCheck) {
+  } else if (emailLookup(newEmail, users)) {
     res.status(400).send("User already found at e-mail submitted");
+  } else {
+    const newUser = generateRandomString();
+    users[newUser] = { id: newUser, email: newEmail, password: newPass };
+    res.cookie("user_id", newUser);
+    res.redirect("/");
   }
-  const newUser = generateRandomString();
-  users[newUser] = { id: newUser, email: newEmail, password: newPass }
-  res.cookie("user_id", newUser);
-  console.log(users[newUser])
-  console.log(users)
-  res.redirect("/");
 });
 
 app.listen(PORT, () => {
