@@ -45,9 +45,19 @@ const findUser = (email, users) => {
   }
 };
 
+const urlsForUser = (id, urls) => {
+  let shortList = {};
+  for (const url in urls) {
+    if (urls[url].userID === id) {
+      shortList[url] = urls[url];
+    }
+  }
+  return shortList;
+};
+
 const urlDatabase = {
   b6UTxQ: { longURL: "https://www.tsn.ca", userID: "redditor" },
-  i3BoGr: { longURL: "https://www.google.ca", userID: "redditor" }
+  sgq3y6: { longURL: "https://www.google.ca", userID: "redditor" }
 };
 
 const users = {
@@ -63,6 +73,7 @@ const users = {
   }
 };
 
+
 app.get("/", (req, res) => {
   res.redirect("/urls");
 });
@@ -71,14 +82,16 @@ app.get("/urls.json", (req, res) => {
   res.json(urlDatabase);
 });
 
+// GET looking at signed in user's saved short URLs
 app.get("/urls", (req, res) => {
   const templateVars = {
     userID: users[req.cookies["user_id"]],
-    urls: urlDatabase
+    urls: urlsForUser(req.cookies["user_id"], urlDatabase)
   };
   res.render("urls_index", templateVars);
 });
 
+// GET looking at page to create new short URL
 app.get("/urls/new", (req, res) => {
   const templateVars = {
     userID: users[req.cookies["user_id"]],
@@ -109,7 +122,7 @@ app.get("/urls/:shortURL", (req, res) => {
   const templateVars = {
     userID: users[req.cookies["user_id"]],
     shortURL: req.params.shortURL,
-    longURL: urlDatabase[req.params.shortURL]
+    longURL: urlDatabase[req.params.shortURL].longURL
   };
   res.render("urls_show", templateVars);
 });
@@ -121,13 +134,19 @@ app.get("/u/:shortURL", (req, res) => {
 });
 
 // POST edit requested short URL
-app.post("/urls/:id", (req, res) => {
-  urlDatabase[req.params.id] = req.body.longURL;
+app.post("/urls/:shortURL", (req, res) => {
+  if (req.cookies["user_id"] !== urlDatabase[req.params.shortURL].userID) {
+    res.status(400).send("Invalid short URL");
+  }
+  urlDatabase[req.params.shortURL].longURL = req.body.longURL;
   res.redirect("/urls");
 });
 
 // POST delete requested short URL
 app.post("/urls/:shortURL/delete", (req, res) => {
+  if (req.cookies["user_id"] !== urlDatabase[req.params.shortURL].userID) {
+    res.status(400).send("Invalid short URL");
+  }
   delete urlDatabase[req.params.shortURL];
   res.redirect("/urls");
 });
