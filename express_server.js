@@ -46,8 +46,8 @@ const findUser = (email, users) => {
 };
 
 const urlDatabase = {
-  "b2xVn2": "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com"
+  b6UTxQ: { longURL: "https://www.tsn.ca", userID: "redditor" },
+  i3BoGr: { longURL: "https://www.google.ca", userID: "redditor" }
 };
 
 const users = {
@@ -83,6 +83,9 @@ app.get("/urls/new", (req, res) => {
   const templateVars = {
     userID: users[req.cookies["user_id"]],
   };
+  if (!req.cookies["user_id"]) {
+    res.redirect("/login");
+  }
   res.render("urls_new", templateVars);
 });
 
@@ -113,20 +116,20 @@ app.get("/urls/:shortURL", (req, res) => {
 
 // GET redirecting to long URL
 app.get("/u/:shortURL", (req, res) => {
-  const longURL = urlDatabase[req.params.shortURL];
+  const longURL = urlDatabase[req.params.shortURL].longURL;
   res.redirect(longURL);
 });
 
 // POST edit requested short URL
 app.post("/urls/:id", (req, res) => {
   urlDatabase[req.params.id] = req.body.longURL;
-  res.redirect("/");
+  res.redirect("/urls");
 });
 
 // POST delete requested short URL
 app.post("/urls/:shortURL/delete", (req, res) => {
   delete urlDatabase[req.params.shortURL];
-  res.redirect("/");
+  res.redirect("/urls");
 });
 
 // POST generating new short URL
@@ -149,15 +152,14 @@ app.post("/login", (req, res) => {
     }
     const login = findUser(userEmail, users);
     res.cookie("user_id", login);
-    console.log(login);
-    res.redirect("/");
+    res.redirect("/urls");
   }
 });
 
 // POST set logout
 app.post("/logout", (req, res) => {
   res.clearCookie("user_id");
-  res.redirect("/");
+  res.redirect("/urls");
 });
 
 // POST to register new users
@@ -173,7 +175,7 @@ app.post("/register", (req, res) => {
     const newUser = generateRandomString();
     users[newUser] = { id: newUser, email: newEmail, password: newPass };
     res.cookie("user_id", newUser);
-    res.redirect("/");
+    res.redirect("/urls");
   }
 });
 
