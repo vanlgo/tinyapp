@@ -7,8 +7,11 @@ This is a small, localized rendition created as a student project for Lighthouse
 ## Final Product
 
 !["Login and see all your saved shortened URLs"](https://github.com/vanlgo/tinyapp/blob/master/docs/loggedin_urls.png?raw=true)
+- Login and see all your saved shortened URLs"
 !["Create new shortened URLs for your own personal use"](https://github.com/vanlgo/tinyapp/blob/master/docs/urls_new.png?raw=true)
+- Create new shortened URLs for your own personal use
 !["Edit and delete personal shortened URLs to your hearts content, share shortened URLs with others"](https://github.com/vanlgo/tinyapp/blob/master/docs/create_edit.png?raw=true)
+- Edit and delete personal shortened URLs to your hearts content, share shortened URLs with others
 
 ## Dependencies
 
