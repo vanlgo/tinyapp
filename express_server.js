@@ -1,3 +1,10 @@
+const {
+  generateRandomString,
+  emailLookup,
+  passLookup,
+  urlsForUser,
+  getUserByEmail
+} = require("./helpers");
 const express = require("express");
 const app = express();
 const PORT = 8080;
@@ -16,61 +23,15 @@ app.use(cookieSession({
 }));
 
 // using bcrypt 5.0.1 to hash the password
-const bcrypt = require('bcrypt');
+const bcrypt = require("bcrypt");
 const saltRounds = 10;
 
-const generateRandomString = () => {
-  const char = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890";
-  let result = "";
-  while (result.length < 6) {
-    result += char.charAt(Math.floor(Math.random() * char.length));
-  }
-  return result;
-};
-
-// function to check for emails on file
-const emailLookup = (email, users) => {
-  for (const user in users) {
-    if (users[user].email === email) {
-      return true;
-    }
-  }
-  return false;
-};
-
-// function checking for hashed password
-const passLookup = (pass, users) => {
-  for (const user in users) {
-    if (bcrypt.compareSync(pass, users[user].password)) {
-      return true;
-    }
-  }
-  return false;
-};
-
-// function checking for users in database
-const getUserByEmail = (email, users) => {
-  for (const user in users) {
-    if (users[user].email === email) {
-      return users[user].id;
-    }
-  }
-};
-
-// function checking for URLs saved for user
-const urlsForUser = (id, urls) => {
-  let shortList = {};
-  for (const url in urls) {
-    if (urls[url].userID === id) {
-      shortList[url] = urls[url];
-    }
-  }
-  return shortList;
-};
 
 const urlDatabase = {
   b6UTxQ: { longURL: "https://www.tsn.ca", userID: "redditor" },
-  sgq3y6: { longURL: "https://www.google.ca", userID: "redditor" }
+  sgq3y6: { longURL: "https://www.google.ca", userID: "redditor" },
+  tm8zHu: { longURL: "https://www.youtube.com", userID: "tumblrite" },
+  S2pHzQ: { longURL: "https://en.wikipedia.org", userID: "tumblrite" }
 };
 
 const users = {
@@ -86,7 +47,6 @@ const users = {
   }
 };
 
-
 app.get("/", (req, res) => {
   res.redirect("/urls");
 });
@@ -98,8 +58,8 @@ app.get("/urls.json", (req, res) => {
 // GET looking at signed in user's saved short URLs
 app.get("/urls", (req, res) => {
   const templateVars = {
-    userID: users[req.session.user_id],
-    urls: urlsForUser(req.session.user_id, urlDatabase)
+    userID: users[req.session["user_id"]],
+    urls: urlsForUser(req.session["user_id"], urlDatabase)
   };
   res.render("urls_index", templateVars);
 });
@@ -107,9 +67,9 @@ app.get("/urls", (req, res) => {
 // GET looking at page to create new short URL
 app.get("/urls/new", (req, res) => {
   const templateVars = {
-    userID: users[req.session.user_id],
+    userID: users[req.session["user_id"]],
   };
-  if (!req.session.user_id) { // GET only allows those who are logged in to add new URLs
+  if (!req.session["user_id"]) { // GET only allows those who are logged in to add new URLs
     res.redirect("/login");
   } else {
     res.render("urls_new", templateVars);
@@ -119,14 +79,14 @@ app.get("/urls/new", (req, res) => {
 
 app.get("/register", (req, res) => {
   const templateVars = {
-    userID: users[req.session.user_id],
+    userID: users[req.session["user_id"]],
   };
   res.render("register", templateVars);
 });
 
 app.get("/login", (req, res) => {
   const templateVars = {
-    userID: users[req.session.user_id],
+    userID: users[req.session["user_id"]],
   };
   res.render("login", templateVars);
 });
@@ -134,7 +94,7 @@ app.get("/login", (req, res) => {
 // GET redirecting to tinyapp page for shortURL
 app.get("/urls/:shortURL", (req, res) => {
   const templateVars = {
-    userID: users[req.session.user_id],
+    userID: users[req.session["user_id"]],
     shortURL: req.params.shortURL,
     longURL: urlDatabase[req.params.shortURL].longURL
   };
@@ -149,7 +109,7 @@ app.get("/u/:shortURL", (req, res) => {
 
 // POST edit requested short URL
 app.post("/urls/:shortURL", (req, res) => {
-  if (req.session.user_id !== urlDatabase[req.params.shortURL].userID) {
+  if (req.session["user_id"] !== urlDatabase[req.params.shortURL].userID) {
     res.status(400).send("Invalid short URL");
   } else {
     urlDatabase[req.params.shortURL].longURL = req.body.longURL;
@@ -159,7 +119,7 @@ app.post("/urls/:shortURL", (req, res) => {
 
 // POST delete requested short URL
 app.post("/urls/:shortURL/delete", (req, res) => {
-  if (req.session.user_id !== urlDatabase[req.params.shortURL].userID) {
+  if (req.session["user_id"] !== urlDatabase[req.params.shortURL].userID) {
     res.status(400).send("Invalid short URL");
   } else {
     delete urlDatabase[req.params.shortURL];
@@ -182,11 +142,11 @@ app.post("/login", (req, res) => {
   if (!emailLookup(userEmail, users)) {
     res.status(400).send("Invalid e-mail or password");
   } else {
-    if (!passLookup(userPass, users)) {
+    if (!passLookup(userEmail, userPass, users)) {
       res.status(400).send("Invalid e-mail or password");
     } else {
       const login = getUserByEmail(userEmail, users);
-      req.session.user_id = login;
+      req.session["user_id"] = login;
       res.redirect("/urls");
     }
   }
@@ -194,7 +154,7 @@ app.post("/login", (req, res) => {
 
 // POST set logout
 app.post("/logout", (req, res) => {
-  req.session.user_id = null;
+  req.session["user_id"] = null;
   res.redirect("/urls");
 });
 
@@ -211,7 +171,7 @@ app.post("/register", (req, res) => {
     const newUser = generateRandomString();
     const hashedPass = bcrypt.hashSync(newPass, saltRounds);
     users[newUser] = { id: newUser, email: newEmail, password: hashedPass };
-    req.session.user_id = newUser;
+    req.session["user_id"] = newUser;
     res.redirect("/urls");
   }
 });
