@@ -6,10 +6,9 @@ This is a small, localized rendition created as a student project for Lighthouse
 
 ## Final Product
 
-- Sign up and create an account
-- Login and save URLs under shortened URLs
-- Edit and delete personal shortened URLs to your hearts content
-- share shortened URLs with others
+!["Login and see all your saved shortened URLs"](#)
+!["Create new shortened URLs for your own personal use"](#)
+!["Edit and delete personal shortened URLs to your hearts content, share shortened URLs with others"](#)
 
 ## Dependencies
 
