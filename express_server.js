@@ -2,15 +2,22 @@ const express = require("express");
 const app = express();
 const PORT = 8080;
 
+app.set("view engine", "ejs");
+
 // adding parser to convert request to string
 const bodyParser = require("body-parser");
 app.use(bodyParser.urlencoded({extended: true}));
 
-// adding parser to create cookies
-const cookieParser = require("cookie-parser");
-app.use(cookieParser());
+// adding cookie-session to encrypt cookies
+const cookieSession = require("cookie-session");
+app.use(cookieSession({
+  name: "session",
+  keys: ["super", "secret"],
+}));
 
-app.set("view engine", "ejs");
+// using bcrypt 5.0.1 to hash the password
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 
 const generateRandomString = () => {
   const char = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890";
@@ -21,23 +28,28 @@ const generateRandomString = () => {
   return result;
 };
 
+// function to check for emails on file
 const emailLookup = (email, users) => {
   for (const user in users) {
     if (users[user].email === email) {
       return true;
     }
   }
+  return false;
 };
 
+// function checking for hashed password
 const passLookup = (pass, users) => {
   for (const user in users) {
-    if (users[user].password === pass) {
+    if (bcrypt.compareSync(pass, users[user].password)) {
       return true;
     }
   }
+  return false;
 };
 
-const findUser = (email, users) => {
+// function checking for users in database
+const getUserByEmail = (email, users) => {
   for (const user in users) {
     if (users[user].email === email) {
       return users[user].id;
@@ -45,6 +57,7 @@ const findUser = (email, users) => {
   }
 };
 
+// function checking for URLs saved for user
 const urlsForUser = (id, urls) => {
   let shortList = {};
   for (const url in urls) {
@@ -64,12 +77,12 @@ const users = {
   "redditor": {
     id: "redditor",
     email: "redditor@reddit.com",
-    password: "purple-monkey-dinosaur"
+    password: bcrypt.hashSync("purple-monkey-dinosaur", saltRounds)
   },
   "tumblrite": {
     id: "tumblrite",
     email: "tumblrite@tumblr.com",
-    password: "dishwasher-funk"
+    password: bcrypt.hashSync("dishwasher-funk", saltRounds)
   }
 };
 
@@ -85,8 +98,8 @@ app.get("/urls.json", (req, res) => {
 // GET looking at signed in user's saved short URLs
 app.get("/urls", (req, res) => {
   const templateVars = {
-    userID: users[req.cookies["user_id"]],
-    urls: urlsForUser(req.cookies["user_id"], urlDatabase)
+    userID: users[req.session.user_id],
+    urls: urlsForUser(req.session.user_id, urlDatabase)
   };
   res.render("urls_index", templateVars);
 });
@@ -94,33 +107,34 @@ app.get("/urls", (req, res) => {
 // GET looking at page to create new short URL
 app.get("/urls/new", (req, res) => {
   const templateVars = {
-    userID: users[req.cookies["user_id"]],
+    userID: users[req.session.user_id],
   };
-  if (!req.cookies["user_id"]) {
+  if (!req.session.user_id) { // GET only allows those who are logged in to add new URLs
     res.redirect("/login");
+  } else {
+    res.render("urls_new", templateVars);
   }
-  res.render("urls_new", templateVars);
+
 });
 
 app.get("/register", (req, res) => {
   const templateVars = {
-    userID: users[req.cookies["user_id"]],
+    userID: users[req.session.user_id],
   };
   res.render("register", templateVars);
 });
 
 app.get("/login", (req, res) => {
   const templateVars = {
-    userID: users[req.cookies["user_id"]],
+    userID: users[req.session.user_id],
   };
   res.render("login", templateVars);
 });
 
-
 // GET redirecting to tinyapp page for shortURL
 app.get("/urls/:shortURL", (req, res) => {
   const templateVars = {
-    userID: users[req.cookies["user_id"]],
+    userID: users[req.session.user_id],
     shortURL: req.params.shortURL,
     longURL: urlDatabase[req.params.shortURL].longURL
   };
@@ -135,20 +149,22 @@ app.get("/u/:shortURL", (req, res) => {
 
 // POST edit requested short URL
 app.post("/urls/:shortURL", (req, res) => {
-  if (req.cookies["user_id"] !== urlDatabase[req.params.shortURL].userID) {
+  if (req.session.user_id !== urlDatabase[req.params.shortURL].userID) {
     res.status(400).send("Invalid short URL");
+  } else {
+    urlDatabase[req.params.shortURL].longURL = req.body.longURL;
+    res.redirect("/urls");
   }
-  urlDatabase[req.params.shortURL].longURL = req.body.longURL;
-  res.redirect("/urls");
 });
 
 // POST delete requested short URL
 app.post("/urls/:shortURL/delete", (req, res) => {
-  if (req.cookies["user_id"] !== urlDatabase[req.params.shortURL].userID) {
+  if (req.session.user_id !== urlDatabase[req.params.shortURL].userID) {
     res.status(400).send("Invalid short URL");
+  } else {
+    delete urlDatabase[req.params.shortURL];
+    res.redirect("/urls");
   }
-  delete urlDatabase[req.params.shortURL];
-  res.redirect("/urls");
 });
 
 // POST generating new short URL
@@ -168,16 +184,17 @@ app.post("/login", (req, res) => {
   } else {
     if (!passLookup(userPass, users)) {
       res.status(400).send("Invalid e-mail or password");
+    } else {
+      const login = getUserByEmail(userEmail, users);
+      req.session.user_id = login;
+      res.redirect("/urls");
     }
-    const login = findUser(userEmail, users);
-    res.cookie("user_id", login);
-    res.redirect("/urls");
   }
 });
 
 // POST set logout
 app.post("/logout", (req, res) => {
-  res.clearCookie("user_id");
+  req.session.user_id = null;
   res.redirect("/urls");
 });
 
@@ -192,8 +209,9 @@ app.post("/register", (req, res) => {
     res.status(400).send("User already found at e-mail submitted");
   } else {
     const newUser = generateRandomString();
-    users[newUser] = { id: newUser, email: newEmail, password: newPass };
-    res.cookie("user_id", newUser);
+    const hashedPass = bcrypt.hashSync(newPass, saltRounds);
+    users[newUser] = { id: newUser, email: newEmail, password: hashedPass };
+    req.session.user_id = newUser;
     res.redirect("/urls");
   }
 });
