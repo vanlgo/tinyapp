@@ -13,7 +13,7 @@ app.set("view engine", "ejs");
 
 // adding parser to convert request to string
 const bodyParser = require("body-parser");
-app.use(bodyParser.urlencoded({extended: true}));
+app.use(bodyParser.urlencoded({ extended: true }));
 
 // adding cookie-session to encrypt cookies
 const cookieSession = require("cookie-session");
@@ -48,7 +48,12 @@ const users = {
 };
 
 app.get("/", (req, res) => {
-  res.redirect("/urls");
+  if (req.session["user_id"]) {
+    res.redirect("/urls");
+  } else {
+    res.redirect("/register");
+  }
+
 });
 
 app.get("/urls.json", (req, res) => {
@@ -129,8 +134,10 @@ app.post("/urls/:shortURL/delete", (req, res) => {
 
 // POST generating new short URL
 app.post("/urls", (req, res) => {
+  const userID = req.session["user_id"]
   const shortURL = generateRandomString();
-  urlDatabase[shortURL] = req.body.longURL;
+  const longURL = req.body.longURL;
+  urlDatabase[shortURL] = { longURL, userID };
   res.redirect(`/urls/${shortURL}`);
 });
 
@@ -140,21 +147,22 @@ app.post("/login", (req, res) => {
   const userPass = req.body.password;
 
   if (!emailLookup(userEmail, users)) {
-    res.status(400).send("Invalid e-mail or password");
-  } else {
-    if (!passLookup(userEmail, userPass, users)) {
-      res.status(400).send("Invalid e-mail or password");
-    } else {
-      const login = getUserByEmail(userEmail, users);
-      req.session["user_id"] = login;
-      res.redirect("/urls");
-    }
+    return res.status(400).send("Invalid e-mail or password");
   }
+
+  if (!passLookup(userEmail, userPass, users)) {
+    return res.status(400).send("Invalid e-mail or password");
+  }
+
+  const login = getUserByEmail(userEmail, users);
+  req.session["user_id"] = login;
+  res.redirect("/urls");
+
 });
 
 // POST set logout
 app.post("/logout", (req, res) => {
-  req.session["user_id"] = null;
+  req.session = null;
   res.redirect("/urls");
 });
 
@@ -164,16 +172,16 @@ app.post("/register", (req, res) => {
   const newPass = req.body.password;
 
   if (newEmail === "" || newPass === "") {
-    res.status(400).send("Invalid e-mail or password");
-  } else if (emailLookup(newEmail, users)) {
-    res.status(400).send("User already found at e-mail submitted");
-  } else {
-    const newUser = generateRandomString();
-    const hashedPass = bcrypt.hashSync(newPass, saltRounds);
-    users[newUser] = { id: newUser, email: newEmail, password: hashedPass };
-    req.session["user_id"] = newUser;
-    res.redirect("/urls");
+    return res.status(400).send("Invalid e-mail or password");
   }
+  if (emailLookup(newEmail, users)) {
+    return res.status(400).send("User already found at e-mail submitted");
+  }
+  const newUser = generateRandomString();
+  const hashedPass = bcrypt.hashSync(newPass, saltRounds);
+  users[newUser] = { id: newUser, email: newEmail, password: hashedPass };
+  req.session["user_id"] = newUser;
+  res.redirect("/urls");
 });
 
 app.listen(PORT, () => {
