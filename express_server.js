@@ -134,7 +134,7 @@ app.post("/urls/:shortURL/delete", (req, res) => {
 
 // POST generating new short URL
 app.post("/urls", (req, res) => {
-  const userID = req.session["user_id"]
+  const userID = req.session["user_id"];
   const shortURL = generateRandomString();
   const longURL = req.body.longURL;
   urlDatabase[shortURL] = { longURL, userID };
