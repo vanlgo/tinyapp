@@ -47,13 +47,17 @@ const users = {
   }
 };
 
+// redirects user according to if they're logged in or not
 app.get("/", (req, res) => {
-  if (req.session["user_id"]) {
-    res.redirect("/urls");
-  } else {
-    res.redirect("/register");
+  if (!req.session["user_id"]) { // GET checks for logged in user
+    res.redirect("/login");
   }
 
+  const templateVars = {
+    userID: users[req.session["user_id"]],
+  };
+
+  res.render("urls_new", templateVars);
 });
 
 app.get("/urls.json", (req, res) => {
@@ -66,7 +70,11 @@ app.get("/urls", (req, res) => {
     userID: users[req.session["user_id"]],
     urls: urlsForUser(req.session["user_id"], urlDatabase)
   };
-  res.render("urls_index", templateVars);
+  if (!req.session["user_id"]) { // GET checks for logged in user
+    res.redirect("/");
+  }
+
+  res.render("urls_new", templateVars);
 });
 
 // GET looking at page to create new short URL
@@ -74,12 +82,10 @@ app.get("/urls/new", (req, res) => {
   const templateVars = {
     userID: users[req.session["user_id"]],
   };
-  if (!req.session["user_id"]) { // GET only allows those who are logged in to add new URLs
-    res.redirect("/login");
-  } else {
-    res.render("urls_new", templateVars);
+  if (!req.session["user_id"]) { // GET checks for logged in user
+    res.redirect("/");
   }
-
+  res.render("urls_new", templateVars);
 });
 
 app.get("/register", (req, res) => {
@@ -98,11 +104,16 @@ app.get("/login", (req, res) => {
 
 // GET redirecting to tinyapp page for shortURL
 app.get("/urls/:shortURL", (req, res) => {
+  if (req.session["user_id"] !== urlDatabase[req.params.shortURL].userID || !req.session["user_id"]) {
+    res.redirect("/login");
+  }
+
   const templateVars = {
     userID: users[req.session["user_id"]],
     shortURL: req.params.shortURL,
     longURL: urlDatabase[req.params.shortURL].longURL
   };
+
   res.render("urls_show", templateVars);
 });
 
@@ -114,26 +125,31 @@ app.get("/u/:shortURL", (req, res) => {
 
 // POST edit requested short URL
 app.post("/urls/:shortURL", (req, res) => {
-  if (req.session["user_id"] !== urlDatabase[req.params.shortURL].userID) {
-    res.status(400).send("Invalid short URL");
-  } else {
-    urlDatabase[req.params.shortURL].longURL = req.body.longURL;
-    res.redirect("/urls");
+  if (req.session["user_id"] !== urlDatabase[req.params.shortURL].userID || !req.session["user_id"]) {
+    res.redirect("/login");
   }
+
+  urlDatabase[req.params.shortURL].longURL = req.body.longURL;
+  res.redirect("/");
+
 });
 
 // POST delete requested short URL
 app.post("/urls/:shortURL/delete", (req, res) => {
-  if (req.session["user_id"] !== urlDatabase[req.params.shortURL].userID) {
-    res.status(400).send("Invalid short URL");
-  } else {
-    delete urlDatabase[req.params.shortURL];
-    res.redirect("/urls");
+  if (req.session["user_id"] !== urlDatabase[req.params.shortURL].userID || !req.session["user_id"]) {
+    res.redirect("/login");
   }
+
+  delete urlDatabase[req.params.shortURL];
+  res.redirect("/");
+
 });
 
 // POST generating new short URL
 app.post("/urls", (req, res) => {
+  if (req.session["user_id"] !== urlDatabase[req.params.shortURL].userID || !req.session["user_id"]) {
+    res.redirect("/login");
+  }
   const userID = req.session["user_id"];
   const shortURL = generateRandomString();
   const longURL = req.body.longURL;
@@ -156,14 +172,14 @@ app.post("/login", (req, res) => {
 
   const login = getUserByEmail(userEmail, users);
   req.session["user_id"] = login;
-  res.redirect("/urls");
+  res.redirect("/");
 
 });
 
 // POST set logout
 app.post("/logout", (req, res) => {
   req.session = null;
-  res.redirect("/urls");
+  res.redirect("/");
 });
 
 // POST to register new users
@@ -181,7 +197,7 @@ app.post("/register", (req, res) => {
   const hashedPass = bcrypt.hashSync(newPass, saltRounds);
   users[newUser] = { id: newUser, email: newEmail, password: hashedPass };
   req.session["user_id"] = newUser;
-  res.redirect("/urls");
+  res.redirect("/");
 });
 
 app.listen(PORT, () => {
