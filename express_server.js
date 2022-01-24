@@ -66,15 +66,16 @@ app.get("/urls.json", (req, res) => {
 
 // GET looking at signed in user's saved short URLs
 app.get("/urls", (req, res) => {
-  const templateVars = {
-    userID: users[req.session["user_id"]],
-    urls: urlsForUser(req.session["user_id"], urlDatabase)
-  };
   if (!req.session["user_id"]) { // GET checks for logged in user
     res.redirect("/");
   }
 
-  res.render("urls_new", templateVars);
+  const templateVars = {
+    userID: users[req.session["user_id"]],
+    urls: urlsForUser(req.session["user_id"], urlDatabase)
+  };
+
+  res.render("urls_index", templateVars);
 });
 
 // GET looking at page to create new short URL
@@ -85,6 +86,7 @@ app.get("/urls/new", (req, res) => {
   if (!req.session["user_id"]) { // GET checks for logged in user
     res.redirect("/");
   }
+
   res.render("urls_new", templateVars);
 });
 
@@ -130,7 +132,7 @@ app.post("/urls/:shortURL", (req, res) => {
   }
 
   urlDatabase[req.params.shortURL].longURL = req.body.longURL;
-  res.redirect("/");
+  res.redirect("/urls");
 
 });
 
@@ -141,19 +143,21 @@ app.post("/urls/:shortURL/delete", (req, res) => {
   }
 
   delete urlDatabase[req.params.shortURL];
-  res.redirect("/");
+  res.redirect("/urls");
 
 });
 
 // POST generating new short URL
 app.post("/urls", (req, res) => {
-  if (req.session["user_id"] !== urlDatabase[req.params.shortURL].userID || !req.session["user_id"]) {
-    res.redirect("/login");
-  }
   const userID = req.session["user_id"];
   const shortURL = generateRandomString();
   const longURL = req.body.longURL;
   urlDatabase[shortURL] = { longURL, userID };
+
+  if (!req.session["user_id"]) {
+    res.redirect("/login");
+  }
+
   res.redirect(`/urls/${shortURL}`);
 });
 
